@@ -82,12 +82,47 @@ export function AdminDashboard() {
   }
   
   // 로딩 상태
-  if (isLoading || !event) {
+  if (isLoading) {
     return (
       <div className="mobile-container min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4" />
           <p className="text-slate-400">연결 중...</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // 이벤트가 없는 경우
+  if (!event) {
+    return (
+      <div className="mobile-container min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">📭</div>
+          <h1 className="text-2xl font-bold text-white mb-2">이벤트가 없습니다</h1>
+          <p className="text-slate-400 mb-6">
+            Supabase에서 이벤트를 먼저 생성해야 합니다.
+          </p>
+          <div className="bg-slate-800 rounded-xl p-4 text-left mb-6">
+            <p className="text-sm text-slate-300 mb-2">Supabase SQL Editor에서 실행:</p>
+            <pre className="text-xs text-emerald-400 bg-slate-900 p-3 rounded overflow-x-auto">
+{`INSERT INTO events 
+(name, duration_minutes, status, hints_per_team)
+VALUES 
+('방탈출 게임', 60, 'waiting', 5);`}
+            </pre>
+          </div>
+          <div className="flex gap-2 justify-center">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="btn btn-primary"
+            >
+              새로고침
+            </button>
+            <button onClick={handleLogout} className="btn btn-ghost">
+              로그아웃
+            </button>
+          </div>
         </div>
       </div>
     )

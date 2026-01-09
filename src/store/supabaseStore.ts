@@ -84,12 +84,11 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   
   channel: null,
   
-  // Supabase에 시드 데이터 생성
+  // 시드 데이터 생성 (관리자가 수동으로 호출)
   createSeedData: async () => {
-    console.log('🌱 Creating seed data in Supabase...')
+    console.log('🌱 Creating new event in Supabase...')
     
     try {
-      // 1. 이벤트 생성
       const { data: newEvent, error: eventError } = await supabase
         .from('events')
         .insert({
@@ -111,13 +110,13 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
       return newEvent.id
       
     } catch (err: any) {
-      console.error('❌ Seed data creation failed:', err)
+      console.error('❌ Event creation failed:', err)
       set({ error: err.message })
       return null
     }
   },
   
-  // 초기화 - 데이터 로드
+  // 초기화 - 데이터 로드 (자동 시드 데이터 생성 안함)
   initialize: async () => {
     if (get().isInitialized || get().isLoading) return
     
@@ -126,7 +125,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
     
     try {
       // 이벤트 로드 시도
-      let { data: events, error: eventError } = await supabase
+      const { data: events, error: eventError } = await supabase
         .from('events')
         .select('*')
         .order('created_at', { ascending: false })
@@ -137,33 +136,28 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
         throw new Error(`이벤트 로드 실패: ${eventError.message}`)
       }
       
-      let currentEvent: DbEvent
-      
-      // 이벤트가 없으면 시드 데이터 생성
+      // 이벤트가 없으면 빈 상태로 초기화 (자동 생성 안함)
       if (!events || events.length === 0) {
-        console.log('📭 No events found, creating seed data...')
-        const newEventId = await get().createSeedData()
+        console.log('📭 No events found in database')
+        console.log('💡 관리자가 Supabase에서 이벤트를 먼저 생성해야 합니다')
         
-        if (!newEventId) {
-          throw new Error('시드 데이터 생성 실패')
-        }
-        
-        // 새로 생성된 이벤트 로드
-        const { data: newEvent, error: newEventError } = await supabase
-          .from('events')
-          .select('*')
-          .eq('id', newEventId)
-          .single()
-        
-        if (newEventError || !newEvent) {
-          throw new Error('새 이벤트 로드 실패')
-        }
-        
-        currentEvent = newEvent
-      } else {
-        currentEvent = events[0]
+        set({
+          event: null,
+          teams: [],
+          stages: [],
+          puzzles: [],
+          puzzleHints: [],
+          stageViews: [],
+          hintUsages: [],
+          isLoading: false,
+          isConnected: true,
+          isInitialized: true,
+          error: '이벤트가 없습니다. Supabase에서 이벤트를 생성하세요.',
+        })
+        return
       }
       
+      const currentEvent = events[0]
       console.log('📋 Loading event data:', currentEvent.id)
       
       // 관련 데이터 로드

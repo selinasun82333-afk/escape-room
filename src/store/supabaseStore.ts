@@ -6,65 +6,12 @@ import { create } from 'zustand'
 import { supabase, DbEvent, DbTeam, DbStage, DbPuzzle, DbPuzzleHint, DbTeamStageView, DbTeamHintUsage } from '../lib/supabase'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 
-// Mock 데이터 (Supabase 연결 실패 시 사용)
-const mockEvent: DbEvent = {
-  id: 'mock-event-1',
-  name: '셜록홈즈의 미제사건',
-  duration_minutes: 60,
-  status: 'waiting',
-  started_at: null,
-  paused_at: null,
-  paused_duration: 0,
-  hints_per_team: 5,
-}
-
-const mockTeams: DbTeam[] = [
-  { id: 'team-1', event_id: 'mock-event-1', name: '보라팀', color: '#8b5cf6', join_code: 'PURPLE', hints_remaining: 5 },
-  { id: 'team-2', event_id: 'mock-event-1', name: '빨강팀', color: '#ef4444', join_code: 'RED123', hints_remaining: 5 },
-  { id: 'team-3', event_id: 'mock-event-1', name: '노랑팀', color: '#eab308', join_code: 'YELLOW', hints_remaining: 5 },
-  { id: 'team-4', event_id: 'mock-event-1', name: '파랑팀', color: '#3b82f6', join_code: 'BLUE99', hints_remaining: 5 },
-]
-
-const mockStages: DbStage[] = [
-  { id: 'stage-1', event_id: 'mock-event-1', name: '용의자의 방', entry_code: 'ROOM001', webtoon_image_url: 'https://placehold.co/400x600/1a1a2e/white?text=용의자의+방' },
-  { id: 'stage-2', event_id: 'mock-event-1', name: '증거물품 보관소', entry_code: 'EVIDENCE', webtoon_image_url: 'https://placehold.co/400x600/1a1a2e/white?text=증거물품+보관소' },
-  { id: 'stage-3', event_id: 'mock-event-1', name: '런던 거리', entry_code: 'LONDON', webtoon_image_url: 'https://placehold.co/400x600/1a1a2e/white?text=런던+거리' },
-  { id: 'stage-4', event_id: 'mock-event-1', name: '베이커가 221B', entry_code: 'BAKER221', webtoon_image_url: 'https://placehold.co/400x600/1a1a2e/white?text=베이커가+221B' },
-]
-
-const mockPuzzles: DbPuzzle[] = [
-  { id: 'puzzle-1', event_id: 'mock-event-1', name: '암호 해독', hint_code: 'CIPHER' },
-  { id: 'puzzle-2', event_id: 'mock-event-1', name: '숨겨진 열쇠', hint_code: 'KEY123' },
-  { id: 'puzzle-3', event_id: 'mock-event-1', name: '타임라인 퍼즐', hint_code: 'TIME99' },
-  { id: 'puzzle-4', event_id: 'mock-event-1', name: '최종 추리', hint_code: 'FINAL1' },
-]
-
-const mockPuzzleHints: DbPuzzleHint[] = [
-  // 암호 해독
-  { id: 'hint-1-1', puzzle_id: 'puzzle-1', level: 1, content: '벽에 있는 그림을 자세히 살펴보세요.', coin_cost: 0 },
-  { id: 'hint-1-2', puzzle_id: 'puzzle-1', level: 2, content: '그림 속 숫자들을 왼쪽에서 오른쪽으로 읽어보세요.', coin_cost: 1 },
-  { id: 'hint-1-3', puzzle_id: 'puzzle-1', level: 3, content: '정답은 3-7-2-9 입니다.', coin_cost: 2 },
-  // 숨겨진 열쇠
-  { id: 'hint-2-1', puzzle_id: 'puzzle-2', level: 1, content: '책장 근처를 살펴보세요.', coin_cost: 0 },
-  { id: 'hint-2-2', puzzle_id: 'puzzle-2', level: 2, content: '빨간색 책 뒤를 확인하세요.', coin_cost: 1 },
-  { id: 'hint-2-3', puzzle_id: 'puzzle-2', level: 3, content: '"셜록홈즈 전집" 책 뒤에 열쇠가 있습니다.', coin_cost: 2 },
-  // 타임라인 퍼즐
-  { id: 'hint-3-1', puzzle_id: 'puzzle-3', level: 1, content: '사건 발생 순서를 생각해보세요.', coin_cost: 0 },
-  { id: 'hint-3-2', puzzle_id: 'puzzle-3', level: 2, content: '피해자의 일기장에 단서가 있습니다.', coin_cost: 1 },
-  { id: 'hint-3-3', puzzle_id: 'puzzle-3', level: 3, content: '순서: 파티 → 정전 → 비명 → 발견', coin_cost: 2 },
-  // 최종 추리
-  { id: 'hint-4-1', puzzle_id: 'puzzle-4', level: 1, content: '모든 증거를 다시 검토하세요.', coin_cost: 0 },
-  { id: 'hint-4-2', puzzle_id: 'puzzle-4', level: 2, content: '범인은 알리바이가 거짓인 사람입니다.', coin_cost: 1 },
-  { id: 'hint-4-3', puzzle_id: 'puzzle-4', level: 3, content: '범인은 집사 제임스입니다.', coin_cost: 2 },
-]
-
 interface SupabaseStore {
   // 연결 상태
   isConnected: boolean
   isLoading: boolean
-  isInitialized: boolean  // 초기화 완료 여부 (mock 데이터 포함)
+  isInitialized: boolean
   error: string | null
-  useMockData: boolean
   
   // 데이터
   event: DbEvent | null
@@ -79,8 +26,9 @@ interface SupabaseStore {
   channel: RealtimeChannel | null
   
   // 초기화 및 구독
-  initialize: (eventId?: string) => Promise<void>
+  initialize: () => Promise<void>
   refreshData: () => Promise<void>
+  createSeedData: () => Promise<string | null>
   subscribe: () => void
   unsubscribe: () => void
   
@@ -125,7 +73,6 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   isLoading: false,
   isInitialized: false,
   error: null,
-  useMockData: false,
   
   event: null,
   teams: [],
@@ -137,83 +84,136 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   
   channel: null,
   
+  // Supabase에 시드 데이터 생성
+  createSeedData: async () => {
+    console.log('🌱 Creating seed data in Supabase...')
+    
+    try {
+      // 1. 이벤트 생성
+      const { data: newEvent, error: eventError } = await supabase
+        .from('events')
+        .insert({
+          name: '방탈출 게임',
+          duration_minutes: 60,
+          status: 'waiting',
+          hints_per_team: 5,
+          paused_duration: 0,
+        })
+        .select()
+        .single()
+      
+      if (eventError) {
+        console.error('❌ Event creation failed:', eventError)
+        throw eventError
+      }
+      
+      console.log('✅ Event created:', newEvent.id)
+      return newEvent.id
+      
+    } catch (err: any) {
+      console.error('❌ Seed data creation failed:', err)
+      set({ error: err.message })
+      return null
+    }
+  },
+  
   // 초기화 - 데이터 로드
-  initialize: async (eventId?: string) => {
-    // 이미 초기화되었거나 로딩 중이면 무시 (무한 루프 방지)
-    // 단, eventId가 제공되면 강제 새로고침
-    if (!eventId && (get().isInitialized || get().isLoading)) return
+  initialize: async () => {
+    if (get().isInitialized || get().isLoading) return
     
     set({ isLoading: true, error: null })
+    console.log('🔄 Initializing Supabase store...')
     
     try {
       // 이벤트 로드 시도
-      let eventQuery = supabase.from('events').select('*')
-      if (eventId) {
-        eventQuery = eventQuery.eq('id', eventId)
-      }
-      const { data: events, error: eventError } = await eventQuery.limit(1).single()
+      let { data: events, error: eventError } = await supabase
+        .from('events')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
       
       if (eventError) {
-        // 테이블이 없거나 데이터가 없으면 Mock 데이터 사용
-        console.warn('Supabase 연결 실패, Mock 데이터 사용:', eventError.message)
-        set({
-          useMockData: true,
-          event: mockEvent,
-          teams: [...mockTeams],
-          stages: [...mockStages],
-          puzzles: [...mockPuzzles],
-          puzzleHints: [...mockPuzzleHints],
-          stageViews: [],
-          hintUsages: [],
-          isLoading: false,
-          isConnected: false,
-          isInitialized: true,
-        })
-        return
+        console.error('❌ Event load error:', eventError)
+        throw new Error(`이벤트 로드 실패: ${eventError.message}`)
       }
       
-      const currentEventId = events.id
+      let currentEvent: DbEvent
+      
+      // 이벤트가 없으면 시드 데이터 생성
+      if (!events || events.length === 0) {
+        console.log('📭 No events found, creating seed data...')
+        const newEventId = await get().createSeedData()
+        
+        if (!newEventId) {
+          throw new Error('시드 데이터 생성 실패')
+        }
+        
+        // 새로 생성된 이벤트 로드
+        const { data: newEvent, error: newEventError } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', newEventId)
+          .single()
+        
+        if (newEventError || !newEvent) {
+          throw new Error('새 이벤트 로드 실패')
+        }
+        
+        currentEvent = newEvent
+      } else {
+        currentEvent = events[0]
+      }
+      
+      console.log('📋 Loading event data:', currentEvent.id)
       
       // 관련 데이터 로드
-      const [teamsRes, stagesRes, puzzlesRes, hintsRes, viewsRes, usagesRes] = await Promise.all([
-        supabase.from('teams').select('*').eq('event_id', currentEventId),
-        supabase.from('stages').select('*').eq('event_id', currentEventId),
-        supabase.from('puzzles').select('*').eq('event_id', currentEventId),
-        supabase.from('puzzle_hints').select('*'),
+      const [teamsRes, stagesRes, puzzlesRes, viewsRes, usagesRes] = await Promise.all([
+        supabase.from('teams').select('*').eq('event_id', currentEvent.id),
+        supabase.from('stages').select('*').eq('event_id', currentEvent.id),
+        supabase.from('puzzles').select('*').eq('event_id', currentEvent.id),
         supabase.from('team_stage_views').select('*'),
         supabase.from('team_hint_usage').select('*'),
       ])
       
+      // 퍼즐 ID 목록
+      const puzzleIds = puzzlesRes.data?.map(p => p.id) || []
+      
+      // 힌트 로드 (해당 퍼즐들의 힌트만)
+      let hintsData: DbPuzzleHint[] = []
+      if (puzzleIds.length > 0) {
+        const { data: hints } = await supabase
+          .from('puzzle_hints')
+          .select('*')
+          .in('puzzle_id', puzzleIds)
+        hintsData = hints || []
+      }
+      
       set({
-        useMockData: false,
-        event: events,
+        event: currentEvent,
         teams: teamsRes.data || [],
         stages: stagesRes.data || [],
         puzzles: puzzlesRes.data || [],
-        puzzleHints: hintsRes.data || [],
+        puzzleHints: hintsData,
         stageViews: viewsRes.data || [],
         hintUsages: usagesRes.data || [],
         isLoading: false,
         isConnected: true,
         isInitialized: true,
+        error: null,
       })
+      
+      console.log('✅ Supabase store initialized successfully')
+      console.log(`   - Teams: ${teamsRes.data?.length || 0}`)
+      console.log(`   - Stages: ${stagesRes.data?.length || 0}`)
+      console.log(`   - Puzzles: ${puzzlesRes.data?.length || 0}`)
       
       // 실시간 구독 시작
       get().subscribe()
       
     } catch (err: any) {
-      console.error('Supabase initialize error:', err)
-      // 에러 발생 시 Mock 데이터로 폴백
+      console.error('❌ Supabase initialize error:', err)
       set({
-        useMockData: true,
-        event: mockEvent,
-        teams: [...mockTeams],
-        stages: [...mockStages],
-        puzzles: [...mockPuzzles],
-        puzzleHints: [...mockPuzzleHints],
-        stageViews: [],
-        hintUsages: [],
-        error: err.message,
+        error: err.message || '연결 실패',
         isLoading: false,
         isConnected: false,
         isInitialized: true,
@@ -224,16 +224,69 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   // 데이터 새로고침 (강제)
   refreshData: async () => {
     const { event } = get()
-    if (event) {
+    console.log('🔄 Refreshing data...')
+    
+    if (!event) {
       set({ isInitialized: false })
-      await get().initialize(event.id)
+      await get().initialize()
+      return
+    }
+    
+    try {
+      const [
+        eventRes,
+        teamsRes, 
+        stagesRes, 
+        puzzlesRes, 
+        viewsRes, 
+        usagesRes
+      ] = await Promise.all([
+        supabase.from('events').select('*').eq('id', event.id).single(),
+        supabase.from('teams').select('*').eq('event_id', event.id),
+        supabase.from('stages').select('*').eq('event_id', event.id),
+        supabase.from('puzzles').select('*').eq('event_id', event.id),
+        supabase.from('team_stage_views').select('*'),
+        supabase.from('team_hint_usage').select('*'),
+      ])
+      
+      // 힌트 로드
+      const puzzleIds = puzzlesRes.data?.map(p => p.id) || []
+      let hintsData: DbPuzzleHint[] = []
+      if (puzzleIds.length > 0) {
+        const { data: hints } = await supabase
+          .from('puzzle_hints')
+          .select('*')
+          .in('puzzle_id', puzzleIds)
+        hintsData = hints || []
+      }
+      
+      set({
+        event: eventRes.data || event,
+        teams: teamsRes.data || [],
+        stages: stagesRes.data || [],
+        puzzles: puzzlesRes.data || [],
+        puzzleHints: hintsData,
+        stageViews: viewsRes.data || [],
+        hintUsages: usagesRes.data || [],
+      })
+      
+      console.log('✅ Data refreshed')
+    } catch (err: any) {
+      console.error('❌ Refresh error:', err)
     }
   },
   
   // 실시간 구독
   subscribe: () => {
-    const { event, useMockData } = get()
-    if (!event || useMockData) return
+    const { event, channel: existingChannel } = get()
+    if (!event) return
+    
+    // 기존 채널이 있으면 제거
+    if (existingChannel) {
+      supabase.removeChannel(existingChannel)
+    }
+    
+    console.log('📡 Setting up realtime subscription...')
     
     const channel = supabase
       .channel('game-changes')
@@ -241,7 +294,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'events', filter: `id=eq.${event.id}` },
         (payload) => {
-          console.log('Event change:', payload)
+          console.log('🔔 Event change:', payload.eventType)
           if (payload.eventType === 'UPDATE') {
             set({ event: payload.new as DbEvent })
           }
@@ -251,7 +304,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'teams', filter: `event_id=eq.${event.id}` },
         (payload) => {
-          console.log('Team change:', payload)
+          console.log('🔔 Team change:', payload.eventType)
           const teams = get().teams
           if (payload.eventType === 'INSERT') {
             set({ teams: [...teams, payload.new as DbTeam] })
@@ -264,27 +317,68 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'team_stage_views' },
+        { event: '*', schema: 'public', table: 'stages', filter: `event_id=eq.${event.id}` },
         (payload) => {
-          console.log('Stage view change:', payload)
-          const views = get().stageViews
+          console.log('🔔 Stage change:', payload.eventType)
+          const stages = get().stages
           if (payload.eventType === 'INSERT') {
-            set({ stageViews: [...views, payload.new as DbTeamStageView] })
+            set({ stages: [...stages, payload.new as DbStage] })
+          } else if (payload.eventType === 'UPDATE') {
+            set({ stages: stages.map(s => s.id === payload.new.id ? payload.new as DbStage : s) })
+          } else if (payload.eventType === 'DELETE') {
+            set({ stages: stages.filter(s => s.id !== payload.old.id) })
           }
         }
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'team_hint_usage' },
+        { event: '*', schema: 'public', table: 'puzzles', filter: `event_id=eq.${event.id}` },
         (payload) => {
-          console.log('Hint usage change:', payload)
-          const usages = get().hintUsages
+          console.log('🔔 Puzzle change:', payload.eventType)
+          const puzzles = get().puzzles
           if (payload.eventType === 'INSERT') {
-            set({ hintUsages: [...usages, payload.new as DbTeamHintUsage] })
+            set({ puzzles: [...puzzles, payload.new as DbPuzzle] })
+          } else if (payload.eventType === 'UPDATE') {
+            set({ puzzles: puzzles.map(p => p.id === payload.new.id ? payload.new as DbPuzzle : p) })
+          } else if (payload.eventType === 'DELETE') {
+            set({ puzzles: puzzles.filter(p => p.id !== payload.old.id) })
           }
         }
       )
-      .subscribe()
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'puzzle_hints' },
+        (payload) => {
+          console.log('🔔 Hint change:', payload.eventType)
+          const hints = get().puzzleHints
+          if (payload.eventType === 'INSERT') {
+            set({ puzzleHints: [...hints, payload.new as DbPuzzleHint] })
+          } else if (payload.eventType === 'UPDATE') {
+            set({ puzzleHints: hints.map(h => h.id === payload.new.id ? payload.new as DbPuzzleHint : h) })
+          } else if (payload.eventType === 'DELETE') {
+            set({ puzzleHints: hints.filter(h => h.id !== payload.old.id) })
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'team_stage_views' },
+        (payload) => {
+          console.log('🔔 Stage view:', payload)
+          set({ stageViews: [...get().stageViews, payload.new as DbTeamStageView] })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'team_hint_usage' },
+        (payload) => {
+          console.log('🔔 Hint usage:', payload)
+          set({ hintUsages: [...get().hintUsages, payload.new as DbTeamHintUsage] })
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime status:', status)
+      })
     
     set({ channel })
   },
@@ -293,20 +387,16 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
     const { channel } = get()
     if (channel) {
       supabase.removeChannel(channel)
-      set({ channel: null, isConnected: false })
+      set({ channel: null })
     }
   },
   
   // 이벤트 업데이트
   updateEvent: async (updates) => {
-    const { event, useMockData } = get()
+    const { event } = get()
     if (!event) return
     
-    if (useMockData) {
-      // Mock 모드: 로컬에서만 업데이트
-      set({ event: { ...event, ...updates } as DbEvent })
-      return
-    }
+    console.log('📝 Updating event:', updates)
     
     const { error } = await supabase
       .from('events')
@@ -314,12 +404,16 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
       .eq('id', event.id)
     
     if (error) {
-      console.error('Update event error:', error)
+      console.error('❌ Update event error:', error)
       throw error
     }
+    
+    // 로컬 상태도 즉시 업데이트 (Realtime이 늦을 수 있음)
+    set({ event: { ...event, ...updates } as DbEvent })
   },
   
   startTimer: async () => {
+    console.log('▶️ Starting timer')
     await get().updateEvent({
       status: 'running',
       started_at: new Date().toISOString(),
@@ -329,6 +423,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   },
   
   pauseTimer: async () => {
+    console.log('⏸️ Pausing timer')
     await get().updateEvent({
       status: 'paused',
       paused_at: new Date().toISOString(),
@@ -339,6 +434,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
     const { event } = get()
     if (!event || !event.paused_at) return
     
+    console.log('▶️ Resuming timer')
     const pausedDuration = (event.paused_duration || 0) + 
       (new Date().getTime() - new Date(event.paused_at).getTime())
     
@@ -350,6 +446,7 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   },
   
   resetTimer: async () => {
+    console.log('🔄 Resetting timer')
     await get().updateEvent({
       status: 'waiting',
       started_at: null,
@@ -360,19 +457,10 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   
   // 힌트 코인 사용
   useHintCoin: async (teamId, cost) => {
-    const { useMockData } = get()
     const team = get().teams.find(t => t.id === teamId)
     if (!team || team.hints_remaining < cost) return false
     
-    if (useMockData) {
-      // Mock 모드: 로컬에서만 업데이트
-      set({
-        teams: get().teams.map(t => 
-          t.id === teamId ? { ...t, hints_remaining: t.hints_remaining - cost } : t
-        )
-      })
-      return true
-    }
+    console.log('🪙 Using hint coin:', { teamId, cost })
     
     const { error } = await supabase
       .from('teams')
@@ -380,9 +468,16 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
       .eq('id', teamId)
     
     if (error) {
-      console.error('Use hint coin error:', error)
+      console.error('❌ Use hint coin error:', error)
       return false
     }
+    
+    // 로컬 상태도 즉시 업데이트
+    set({
+      teams: get().teams.map(t => 
+        t.id === teamId ? { ...t, hints_remaining: t.hints_remaining - cost } : t
+      )
+    })
     
     return true
   },
@@ -393,86 +488,82 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   
   // Admin: 팀 추가
   addTeam: async (team) => {
-    const { useMockData } = get()
+    console.log('➕ Adding team:', team.name)
     
-    if (useMockData) {
-      const newTeam: DbTeam = {
-        ...team,
-        id: `team-${Date.now()}`,
-        created_at: new Date().toISOString(),
-      }
-      set({ teams: [...get().teams, newTeam] })
-      return
-    }
+    const { data, error } = await supabase
+      .from('teams')
+      .insert(team)
+      .select()
+      .single()
     
-    const { error } = await supabase.from('teams').insert(team)
     if (error) {
-      console.error('Add team error:', error)
+      console.error('❌ Add team error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    // 로컬 상태도 즉시 업데이트
+    if (data) {
+      set({ teams: [...get().teams, data] })
+    }
   },
   
   // Admin: 팀 수정
   updateTeam: async (teamId, updates) => {
-    const { useMockData } = get()
+    console.log('📝 Updating team:', teamId)
     
-    if (useMockData) {
-      set({
-        teams: get().teams.map(t => t.id === teamId ? { ...t, ...updates } : t)
-      })
-      return
-    }
+    const { error } = await supabase
+      .from('teams')
+      .update(updates)
+      .eq('id', teamId)
     
-    const { error } = await supabase.from('teams').update(updates).eq('id', teamId)
     if (error) {
-      console.error('Update team error:', error)
+      console.error('❌ Update team error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    // 로컬 상태도 즉시 업데이트
+    set({
+      teams: get().teams.map(t => t.id === teamId ? { ...t, ...updates } : t)
+    })
   },
   
   // Admin: 팀 삭제
   deleteTeam: async (teamId) => {
-    const { useMockData } = get()
-    
-    if (useMockData) {
-      set({ teams: get().teams.filter(t => t.id !== teamId) })
-      return
-    }
-    
-    const { error } = await supabase.from('teams').delete().eq('id', teamId)
-    if (error) {
-      console.error('Delete team error:', error)
-      throw error
-    }
-    await get().refreshData()
-  },
-  
-  // 스테이지 조회
-  viewStage: async (teamId, stageId) => {
-    const { useMockData } = get()
-    if (get().hasViewedStage(teamId, stageId)) return
-    
-    if (useMockData) {
-      // Mock 모드: 로컬에서만 추가
-      set({
-        stageViews: [...get().stageViews, {
-          id: `view-${Date.now()}`,
-          team_id: teamId,
-          stage_id: stageId,
-          viewed_at: new Date().toISOString(),
-        }]
-      })
-      return
-    }
+    console.log('🗑️ Deleting team:', teamId)
     
     const { error } = await supabase
-      .from('team_stage_views')
-      .insert({ team_id: teamId, stage_id: stageId })
+      .from('teams')
+      .delete()
+      .eq('id', teamId)
     
     if (error) {
-      console.error('View stage error:', error)
+      console.error('❌ Delete team error:', error)
+      throw error
+    }
+    
+    // 로컬 상태도 즉시 업데이트
+    set({ teams: get().teams.filter(t => t.id !== teamId) })
+  },
+  
+  // 스테이지 조회 기록
+  viewStage: async (teamId, stageId) => {
+    if (get().hasViewedStage(teamId, stageId)) return
+    
+    console.log('👁️ Recording stage view:', { teamId, stageId })
+    
+    const { data, error } = await supabase
+      .from('team_stage_views')
+      .insert({ team_id: teamId, stage_id: stageId })
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('❌ View stage error:', error)
+      return
+    }
+    
+    if (data) {
+      set({ stageViews: [...get().stageViews, data] })
     }
   },
   
@@ -486,108 +577,92 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   
   // Admin: 스테이지 추가
   addStage: async (stage) => {
-    const { useMockData } = get()
+    console.log('➕ Adding stage:', stage.name)
     
-    if (useMockData) {
-      const newStage: DbStage = {
-        ...stage,
-        id: `stage-${Date.now()}`,
-        created_at: new Date().toISOString(),
-      }
-      set({ stages: [...get().stages, newStage] })
-      return
-    }
+    const { data, error } = await supabase
+      .from('stages')
+      .insert(stage)
+      .select()
+      .single()
     
-    const { error } = await supabase.from('stages').insert(stage)
     if (error) {
-      console.error('Add stage error:', error)
+      console.error('❌ Add stage error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    if (data) {
+      set({ stages: [...get().stages, data] })
+    }
   },
   
   // Admin: 스테이지 수정
   updateStage: async (stageId, updates) => {
-    const { useMockData } = get()
+    console.log('📝 Updating stage:', stageId)
     
-    if (useMockData) {
-      set({
-        stages: get().stages.map(s => s.id === stageId ? { ...s, ...updates } : s)
-      })
-      return
-    }
+    const { error } = await supabase
+      .from('stages')
+      .update(updates)
+      .eq('id', stageId)
     
-    const { error } = await supabase.from('stages').update(updates).eq('id', stageId)
     if (error) {
-      console.error('Update stage error:', error)
+      console.error('❌ Update stage error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    set({
+      stages: get().stages.map(s => s.id === stageId ? { ...s, ...updates } : s)
+    })
   },
   
   // Admin: 스테이지 삭제
   deleteStage: async (stageId) => {
-    const { useMockData } = get()
+    console.log('🗑️ Deleting stage:', stageId)
     
-    if (useMockData) {
-      set({ stages: get().stages.filter(s => s.id !== stageId) })
-      return
+    // 이미지도 삭제 시도
+    try {
+      await supabase.storage.from('webtoons').remove([`${stageId}`])
+    } catch (e) {
+      console.warn('Image delete warning:', e)
     }
     
-    // 이미지도 삭제
-    await supabase.storage.from('webtoons').remove([`${stageId}`])
+    const { error } = await supabase
+      .from('stages')
+      .delete()
+      .eq('id', stageId)
     
-    const { error } = await supabase.from('stages').delete().eq('id', stageId)
     if (error) {
-      console.error('Delete stage error:', error)
+      console.error('❌ Delete stage error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    set({ stages: get().stages.filter(s => s.id !== stageId) })
   },
   
   // Admin: 스테이지 이미지 업로드
   uploadStageImage: async (stageId, file) => {
-    const { useMockData } = get()
-    
-    console.log('📤 이미지 업로드 시작:', { stageId, fileName: file.name, fileSize: file.size, fileType: file.type })
-    
-    if (useMockData) {
-      // Mock 모드: 로컬 URL 생성 (blob URL)
-      console.log('🔶 Mock 모드 - blob URL 생성')
-      const url = URL.createObjectURL(file)
-      set({
-        stages: get().stages.map(s => 
-          s.id === stageId ? { ...s, webtoon_image_url: url } : s
-        )
-      })
-      console.log('✅ Mock 이미지 URL:', url)
-      return url
-    }
+    console.log('📤 Uploading image:', { stageId, fileName: file.name })
     
     try {
-      // 파일 이름 생성 (특수문자 제거)
       const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg'
       const fileName = `${stageId}/${Date.now()}.${fileExt}`
       
-      console.log('📁 업로드 경로:', fileName)
-      
-      // 기존 이미지 삭제 시도 (에러 무시)
+      // 기존 이미지 삭제 시도
       try {
-        const { data: existingFiles } = await supabase.storage.from('webtoons').list(stageId)
-        console.log('📋 기존 파일 목록:', existingFiles)
+        const { data: existingFiles } = await supabase.storage
+          .from('webtoons')
+          .list(stageId)
+        
         if (existingFiles && existingFiles.length > 0) {
-          const removeResult = await supabase.storage.from('webtoons').remove(
-            existingFiles.map(f => `${stageId}/${f.name}`)
-          )
-          console.log('🗑️ 기존 파일 삭제 결과:', removeResult)
+          await supabase.storage
+            .from('webtoons')
+            .remove(existingFiles.map(f => `${stageId}/${f.name}`))
         }
-      } catch (listError) {
-        console.warn('기존 파일 목록 조회 실패 (무시):', listError)
+      } catch (e) {
+        console.warn('Existing image cleanup warning:', e)
       }
       
       // 새 이미지 업로드
-      console.log('⏳ Supabase Storage에 업로드 중...')
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('webtoons')
         .upload(fileName, file, {
           cacheControl: '3600',
@@ -595,44 +670,23 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
         })
       
       if (uploadError) {
-        console.error('❌ 업로드 실패:', uploadError)
-        console.error('에러 상세:', JSON.stringify(uploadError, null, 2))
-        throw new Error(`업로드 실패: ${uploadError.message}`)
+        console.error('❌ Upload error:', uploadError)
+        throw uploadError
       }
-      
-      console.log('✅ 업로드 성공:', uploadData)
       
       // Public URL 생성
       const { data: publicUrl } = supabase.storage
         .from('webtoons')
         .getPublicUrl(fileName)
       
-      console.log('🔗 Public URL:', publicUrl.publicUrl)
+      console.log('✅ Upload success:', publicUrl.publicUrl)
       
-      // 스테이지에 URL 저장
-      console.log('💾 stages 테이블 업데이트 중...')
-      const { error: updateError } = await supabase
-        .from('stages')
-        .update({ webtoon_image_url: publicUrl.publicUrl })
-        .eq('id', stageId)
-      
-      if (updateError) {
-        console.error('❌ stages 테이블 업데이트 실패:', updateError)
-        throw new Error(`DB 업데이트 실패: ${updateError.message}`)
-      }
-      
-      console.log('✅ 이미지 업로드 완료!')
-      
-      // 로컬 상태도 즉시 업데이트
-      set({
-        stages: get().stages.map(s => 
-          s.id === stageId ? { ...s, webtoon_image_url: publicUrl.publicUrl } : s
-        )
-      })
+      // DB 업데이트
+      await get().updateStage(stageId, { webtoon_image_url: publicUrl.publicUrl })
       
       return publicUrl.publicUrl
     } catch (error) {
-      console.error('❌ uploadStageImage 에러:', error)
+      console.error('❌ uploadStageImage error:', error)
       throw error
     }
   },
@@ -649,28 +703,23 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   },
   
   useHint: async (teamId, puzzleHintId) => {
-    const { useMockData } = get()
     if (get().hasUsedHint(teamId, puzzleHintId)) return
     
-    if (useMockData) {
-      // Mock 모드: 로컬에서만 추가
-      set({
-        hintUsages: [...get().hintUsages, {
-          id: `usage-${Date.now()}`,
-          team_id: teamId,
-          puzzle_hint_id: puzzleHintId,
-          used_at: new Date().toISOString(),
-        }]
-      })
+    console.log('💡 Recording hint usage:', { teamId, puzzleHintId })
+    
+    const { data, error } = await supabase
+      .from('team_hint_usage')
+      .insert({ team_id: teamId, puzzle_hint_id: puzzleHintId })
+      .select()
+      .single()
+    
+    if (error) {
+      console.error('❌ Use hint error:', error)
       return
     }
     
-    const { error } = await supabase
-      .from('team_hint_usage')
-      .insert({ team_id: teamId, puzzle_hint_id: puzzleHintId })
-    
-    if (error) {
-      console.error('Use hint error:', error)
+    if (data) {
+      set({ hintUsages: [...get().hintUsages, data] })
     }
   },
   
@@ -680,121 +729,136 @@ export const useSupabaseStore = create<SupabaseStore>((set, get) => ({
   
   // Admin: 퍼즐 추가
   addPuzzle: async (puzzle) => {
-    const { useMockData } = get()
+    console.log('➕ Adding puzzle:', puzzle.name)
     
-    if (useMockData) {
-      const newPuzzle: DbPuzzle = {
-        ...puzzle,
-        id: `puzzle-${Date.now()}`,
-        created_at: new Date().toISOString(),
-      }
-      set({ puzzles: [...get().puzzles, newPuzzle] })
-      return newPuzzle.id
-    }
+    const { data, error } = await supabase
+      .from('puzzles')
+      .insert(puzzle)
+      .select()
+      .single()
     
-    const { data, error } = await supabase.from('puzzles').insert(puzzle).select().single()
     if (error) {
-      console.error('Add puzzle error:', error)
+      console.error('❌ Add puzzle error:', error)
       throw error
     }
-    await get().refreshData()
-    return data?.id || null
+    
+    if (data) {
+      set({ puzzles: [...get().puzzles, data] })
+      
+      // 기본 힌트 3개 추가
+      const defaultHints = [
+        { puzzle_id: data.id, level: 1, content: '1단계 힌트를 입력하세요', coin_cost: 0 },
+        { puzzle_id: data.id, level: 2, content: '2단계 힌트를 입력하세요', coin_cost: 1 },
+        { puzzle_id: data.id, level: 3, content: '3단계 힌트를 입력하세요', coin_cost: 2 },
+      ]
+      
+      const { data: hintsData, error: hintsError } = await supabase
+        .from('puzzle_hints')
+        .insert(defaultHints)
+        .select()
+      
+      if (!hintsError && hintsData) {
+        set({ puzzleHints: [...get().puzzleHints, ...hintsData] })
+      }
+      
+      return data.id
+    }
+    
+    return null
   },
   
   // Admin: 퍼즐 수정
   updatePuzzle: async (puzzleId, updates) => {
-    const { useMockData } = get()
+    console.log('📝 Updating puzzle:', puzzleId)
     
-    if (useMockData) {
-      set({
-        puzzles: get().puzzles.map(p => p.id === puzzleId ? { ...p, ...updates } : p)
-      })
-      return
-    }
+    const { error } = await supabase
+      .from('puzzles')
+      .update(updates)
+      .eq('id', puzzleId)
     
-    const { error } = await supabase.from('puzzles').update(updates).eq('id', puzzleId)
     if (error) {
-      console.error('Update puzzle error:', error)
+      console.error('❌ Update puzzle error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    set({
+      puzzles: get().puzzles.map(p => p.id === puzzleId ? { ...p, ...updates } : p)
+    })
   },
   
   // Admin: 퍼즐 삭제
   deletePuzzle: async (puzzleId) => {
-    const { useMockData } = get()
+    console.log('🗑️ Deleting puzzle:', puzzleId)
     
-    if (useMockData) {
-      set({ 
-        puzzles: get().puzzles.filter(p => p.id !== puzzleId),
-        puzzleHints: get().puzzleHints.filter(h => h.puzzle_id !== puzzleId)
-      })
-      return
-    }
+    const { error } = await supabase
+      .from('puzzles')
+      .delete()
+      .eq('id', puzzleId)
     
-    const { error } = await supabase.from('puzzles').delete().eq('id', puzzleId)
     if (error) {
-      console.error('Delete puzzle error:', error)
+      console.error('❌ Delete puzzle error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    set({ 
+      puzzles: get().puzzles.filter(p => p.id !== puzzleId),
+      puzzleHints: get().puzzleHints.filter(h => h.puzzle_id !== puzzleId)
+    })
   },
   
   // Admin: 힌트 추가
   addPuzzleHint: async (hint) => {
-    const { useMockData } = get()
+    console.log('➕ Adding hint')
     
-    if (useMockData) {
-      const newHint: DbPuzzleHint = {
-        ...hint,
-        id: `hint-${Date.now()}`,
-        created_at: new Date().toISOString(),
-      }
-      set({ puzzleHints: [...get().puzzleHints, newHint] })
-      return
-    }
+    const { data, error } = await supabase
+      .from('puzzle_hints')
+      .insert(hint)
+      .select()
+      .single()
     
-    const { error } = await supabase.from('puzzle_hints').insert(hint)
     if (error) {
-      console.error('Add puzzle hint error:', error)
+      console.error('❌ Add hint error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    if (data) {
+      set({ puzzleHints: [...get().puzzleHints, data] })
+    }
   },
   
   // Admin: 힌트 수정
   updatePuzzleHint: async (hintId, updates) => {
-    const { useMockData } = get()
+    console.log('📝 Updating hint:', hintId)
     
-    if (useMockData) {
-      set({
-        puzzleHints: get().puzzleHints.map(h => h.id === hintId ? { ...h, ...updates } : h)
-      })
-      return
-    }
+    const { error } = await supabase
+      .from('puzzle_hints')
+      .update(updates)
+      .eq('id', hintId)
     
-    const { error } = await supabase.from('puzzle_hints').update(updates).eq('id', hintId)
     if (error) {
-      console.error('Update puzzle hint error:', error)
+      console.error('❌ Update hint error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    set({
+      puzzleHints: get().puzzleHints.map(h => h.id === hintId ? { ...h, ...updates } : h)
+    })
   },
   
   // Admin: 힌트 삭제
   deletePuzzleHint: async (hintId) => {
-    const { useMockData } = get()
+    console.log('🗑️ Deleting hint:', hintId)
     
-    if (useMockData) {
-      set({ puzzleHints: get().puzzleHints.filter(h => h.id !== hintId) })
-      return
-    }
+    const { error } = await supabase
+      .from('puzzle_hints')
+      .delete()
+      .eq('id', hintId)
     
-    const { error } = await supabase.from('puzzle_hints').delete().eq('id', hintId)
     if (error) {
-      console.error('Delete puzzle hint error:', error)
+      console.error('❌ Delete hint error:', error)
       throw error
     }
-    await get().refreshData()
+    
+    set({ puzzleHints: get().puzzleHints.filter(h => h.id !== hintId) })
   },
 }))

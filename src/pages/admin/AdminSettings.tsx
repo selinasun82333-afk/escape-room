@@ -46,7 +46,7 @@ export function AdminSettings() {
 
 // 타이머 설정
 function TimerSettings() {
-  const { event, teams, updateEvent, refreshData, updateTeam, useMockData } = useSupabaseStore()
+  const { event, teams, updateEvent, refreshData, updateTeam } = useSupabaseStore()
   const [duration, setDuration] = useState(event?.duration_minutes?.toString() || '60')
   const [hintsPerTeam, setHintsPerTeam] = useState(event?.hints_per_team?.toString() || '5')
   const [isSaving, setIsSaving] = useState(false)
@@ -60,6 +60,10 @@ function TimerSettings() {
         duration_minutes: newDuration,
         hints_per_team: newHints,
       })
+      alert('저장되었습니다!')
+    } catch (error) {
+      console.error('Save error:', error)
+      alert('저장 실패')
     } finally {
       setIsSaving(false)
     }
@@ -71,23 +75,16 @@ function TimerSettings() {
     setIsSaving(true)
     try {
       if (event) {
-        if (useMockData) {
-          // Mock 모드: 로컬 상태만 업데이트
-          for (const team of teams) {
-            await updateTeam(team.id, { hints_remaining: event.hints_per_team })
-          }
-        } else {
-          // Supabase 모드
-          await supabase.from('teams')
-            .update({ hints_remaining: event.hints_per_team })
-            .eq('event_id', event.id)
-          
-          // 진행상황 삭제
-          const teamIds = (await supabase.from('teams').select('id').eq('event_id', event.id)).data?.map(t => t.id) || []
-          if (teamIds.length > 0) {
-            await supabase.from('team_stage_views').delete().in('team_id', teamIds)
-            await supabase.from('team_hint_usage').delete().in('team_id', teamIds)
-          }
+        // 모든 팀 코인 리셋
+        await supabase.from('teams')
+          .update({ hints_remaining: event.hints_per_team })
+          .eq('event_id', event.id)
+        
+        // 진행상황 삭제
+        const teamIds = teams.map(t => t.id)
+        if (teamIds.length > 0) {
+          await supabase.from('team_stage_views').delete().in('team_id', teamIds)
+          await supabase.from('team_hint_usage').delete().in('team_id', teamIds)
         }
         
         // 타이머 리셋
@@ -100,7 +97,11 @@ function TimerSettings() {
         
         // 데이터 새로고침
         await refreshData()
+        alert('초기화되었습니다!')
       }
+    } catch (error) {
+      console.error('Reset error:', error)
+      alert('초기화 실패')
     } finally {
       setIsSaving(false)
     }

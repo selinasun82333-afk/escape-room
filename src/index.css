@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #6366f1;
+  --color-bg: #0f0f1a;
+  --color-card: #1a1a2e;
+  --color-border: #2a2a4a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background: var(--color-bg);
+  color: #ffffff;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 모바일 퍼스트 컨테이너 */
+.mobile-container {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* 카드 스타일 */
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+}
+
+/* 버튼 스타일 */
+.btn {
+  @apply px-6 py-3 rounded-xl font-semibold transition-all duration-200 active:scale-95;
+}
+
+.btn-primary {
+  @apply bg-indigo-600 hover:bg-indigo-500 text-white;
+}
+
+.btn-secondary {
+  @apply bg-slate-700 hover:bg-slate-600 text-white;
+}
+
+.btn-danger {
+  @apply bg-red-600 hover:bg-red-500 text-white;
+}
+
+.btn-ghost {
+  @apply bg-transparent hover:bg-white/10 text-white border border-white/20;
+}
+
+/* 입력 필드 */
+.input {
+  @apply w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl
+         text-white placeholder-slate-400 text-lg
+         focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30;
+}
+
+/* 타이머 스타일 */
+.timer-display {
+  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 코인 아이콘 */
+.coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* 스테이지 버튼 */
+.stage-btn {
+  @apply w-full p-4 rounded-2xl text-left transition-all duration-200
+         bg-gradient-to-r border border-white/10
+         active:scale-[0.98];
+}
+
+/* 힌트 레벨 카드 */
+.hint-card {
+  @apply p-4 rounded-xl border transition-all duration-200;
+}
+
+.hint-card-free {
+  @apply bg-emerald-900/30 border-emerald-600/50;
+}
+
+.hint-card-coin1 {
+  @apply bg-amber-900/30 border-amber-600/50;
+}
+
+.hint-card-coin2 {
+  @apply bg-red-900/30 border-red-600/50;
+}
+
+/* 모달 */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50;
+}
+
+.modal-content {
+  @apply bg-slate-800 border border-slate-600 rounded-2xl p-6 w-full max-w-sm;
+}
+
+/* 애니메이션 */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(99, 102, 241, 0.6); }
+}
+
+.timer-running {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.shake {
+  animation: shake 0.3s ease-in-out;
+}

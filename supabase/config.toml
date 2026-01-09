@@ -1,0 +1,77 @@
+# Supabase Local Development Configuration
+# For the Escape Room Platform
+# 
+# To start local development:
+# 1. Install Supabase CLI: npm install -g supabase
+# 2. Run: supabase init (if not already done)
+# 3. Run: supabase start
+# 4. Apply migrations: supabase db push
+
+[api]
+# Port to use for the API URL
+port = 54321
+# Schemas to expose in your API
+schemas = ["public", "graphql_public"]
+# Extra schemas to add to the search path
+extra_search_path = ["public", "extensions"]
+# Maximum number of rows to return from a view, table, or stored procedure
+max_rows = 1000
+
+[db]
+# Port to use for the local database URL
+port = 54322
+# The database major version to use
+major_version = 15
+
+[studio]
+# Port to use for Supabase Studio
+port = 54323
+
+[inbucket]
+# Port for email testing UI
+port = 54324
+
+[storage]
+# Enable file storage
+enabled = true
+
+[auth]
+# Enable authentication
+enabled = true
+# The base URL of your site
+site_url = "http://localhost:5173"
+# Additional redirect URLs allowed
+additional_redirect_urls = ["http://localhost:5173/auth/callback"]
+
+[auth.email]
+# Enable email auth
+enable_signup = true
+# Double confirm email changes
+double_confirm_changes = true
+# Enable email confirmations
+enable_confirmations = false  # Set to true for production
+
+[auth.external.google]
+# Enable Google OAuth (configure in Supabase dashboard for production)
+enabled = false
+
+[realtime]
+# Enable realtime subscriptions
+enabled = true
+# IP version for realtime
+ip_version = "IPv4"
+
+[analytics]
+enabled = false
+
+# ============================================
+# REALTIME TABLES
+# ============================================
+# Enable realtime for specific tables
+# Run these SQL commands in your Supabase project:
+#
+# ALTER PUBLICATION supabase_realtime ADD TABLE events;
+# ALTER PUBLICATION supabase_realtime ADD TABLE team_progress;
+# ALTER PUBLICATION supabase_realtime ADD TABLE hint_usage;
+# ALTER PUBLICATION supabase_realtime ADD TABLE teams;
+

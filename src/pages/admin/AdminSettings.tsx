@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { useSupabaseStore } from '../../store/supabaseStore'
 import { supabase } from '../../lib/supabase'
 
-type SettingSection = 'timer' | 'teams' | 'stages' | 'puzzles'
+type SettingSection = 'timer' | 'teams' | 'stages' | 'hints'
 
 export function AdminSettings() {
   const [activeSection, setActiveSection] = useState<SettingSection>('timer')
@@ -19,7 +19,7 @@ export function AdminSettings() {
           { key: 'timer', icon: '⏱️', label: '타이머' },
           { key: 'teams', icon: '👥', label: '팀 관리' },
           { key: 'stages', icon: '🚪', label: '스테이지' },
-          { key: 'puzzles', icon: '💡', label: '힌트' },
+          { key: 'hints', icon: '💡', label: '힌트' },
         ] as const).map(section => (
           <button
             key={section.key}
@@ -39,14 +39,14 @@ export function AdminSettings() {
       {activeSection === 'timer' && <TimerSettings />}
       {activeSection === 'teams' && <TeamSettings />}
       {activeSection === 'stages' && <StageSettings />}
-      {activeSection === 'puzzles' && <PuzzleSettings />}
+      {activeSection === 'hints' && <HintSettings />}
     </div>
   )
 }
 
 // 타이머 설정
 function TimerSettings() {
-  const { event, teams, updateEvent, refreshData, updateTeam } = useSupabaseStore()
+  const { event, teams, updateEvent, refreshData } = useSupabaseStore()
   const [duration, setDuration] = useState(event?.duration_minutes?.toString() || '60')
   const [hintsPerTeam, setHintsPerTeam] = useState(event?.hints_per_team?.toString() || '5')
   const [isSaving, setIsSaving] = useState(false)
@@ -80,11 +80,11 @@ function TimerSettings() {
           .update({ hints_remaining: event.hints_per_team })
           .eq('event_id', event.id)
         
-        // 진행상황 삭제
+        // 진행상황 삭제 (team_progress, hint_usage)
         const teamIds = teams.map(t => t.id)
         if (teamIds.length > 0) {
-          await supabase.from('team_stage_views').delete().in('team_id', teamIds)
-          await supabase.from('team_hint_usage').delete().in('team_id', teamIds)
+          await supabase.from('team_progress').delete().in('team_id', teamIds)
+          await supabase.from('hint_usage').delete().in('team_id', teamIds)
         }
         
         // 타이머 리셋
@@ -163,7 +163,7 @@ function TimerSettings() {
 function TeamSettings() {
   const { teams, event, addTeam, deleteTeam } = useSupabaseStore()
   const [newName, setNewName] = useState('')
-  const [newCode, setNewCode] = useState('')  // 팀 코드 수동 입력
+  const [newCode, setNewCode] = useState('')
   const [newColor, setNewColor] = useState('#6366f1')
   const [isAdding, setIsAdding] = useState(false)
   
@@ -175,10 +175,9 @@ function TeamSettings() {
   const handleAdd = async () => {
     if (!newName.trim() || !newCode.trim() || !event) return
     
-    // 중복 코드 확인
     const existingTeam = teams.find(t => t.join_code.toUpperCase() === newCode.trim().toUpperCase())
     if (existingTeam) {
-      alert('이미 사용 중인 팀 코드입니다. 다른 코드를 입력해주세요.')
+      alert('이미 사용 중인 팀 코드입니다.')
       return
     }
     
@@ -188,7 +187,7 @@ function TeamSettings() {
         event_id: event.id,
         name: newName.trim(),
         color: newColor,
-        join_code: newCode.trim().toUpperCase(),  // 수동 입력된 코드 사용
+        join_code: newCode.trim().toUpperCase(),
         hints_remaining: event.hints_per_team,
       })
       setNewName('')
@@ -299,7 +298,7 @@ function TeamSettings() {
 
 // 스테이지 관리
 function StageSettings() {
-  const { stages, event, addStage, deleteStage, updateStage, uploadStageImage } = useSupabaseStore()
+  const { stages, event, addStage, deleteStage, uploadStageImage } = useSupabaseStore()
   const [newName, setNewName] = useState('')
   const [newCode, setNewCode] = useState('')
   const [isAdding, setIsAdding] = useState(false)
@@ -314,7 +313,7 @@ function StageSettings() {
         event_id: event.id,
         name: newName.trim(),
         entry_code: newCode.trim().toUpperCase(),
-        webtoon_image_url: `https://placehold.co/400x600/1a1a2e/white?text=${encodeURIComponent(newName.trim())}`,
+        webtoon_image_url: null,
       })
       setNewName('')
       setNewCode('')
@@ -345,7 +344,7 @@ function StageSettings() {
         console.log('✅ 업로드 성공! URL:', url)
         alert('이미지 업로드 완료!')
       } else {
-        alert('이미지 업로드에 실패했습니다. 콘솔을 확인하세요.')
+        alert('이미지 업로드에 실패했습니다.')
       }
     } catch (error: any) {
       console.error('❌ 이미지 업로드 에러:', error)
@@ -451,11 +450,6 @@ function StageSettings() {
                           </div>
                         )}
                       </div>
-                      {stage.webtoon_image_url && (
-                        <p className="text-xs text-slate-500 truncate max-w-[200px]">
-                          {stage.webtoon_image_url.includes('blob:') ? '(미리보기)' : '✓ 업로드됨'}
-                        </p>
-                      )}
                     </div>
                     
                     {/* 이미지 업로드 */}
@@ -470,7 +464,6 @@ function StageSettings() {
                         onChange={(e) => {
                           const file = e.target.files?.[0]
                           if (file) {
-                            // 파일 크기 체크 (10MB)
                             if (file.size > 10 * 1024 * 1024) {
                               alert('파일 크기는 10MB 이하여야 합니다.')
                               return
@@ -495,54 +488,79 @@ function StageSettings() {
   )
 }
 
-// 퍼즐/힌트 관리
-function PuzzleSettings() {
-  const { puzzles, event, addPuzzle, deletePuzzle, addPuzzleHint, updatePuzzleHint, getHintsForPuzzle } = useSupabaseStore()
+// 힌트 관리 (hints 테이블 사용)
+function HintSettings() {
+  const { hints, event, addHint, deleteHint, updateHint, getHintsForPuzzle } = useSupabaseStore()
   const [newName, setNewName] = useState('')
   const [newCode, setNewCode] = useState('')
-  const [editingPuzzle, setEditingPuzzle] = useState<string | null>(null)
+  const [editingHint, setEditingHint] = useState<string | null>(null)
   const [isAdding, setIsAdding] = useState(false)
+  
+  // 퍼즐별로 힌트 그룹화 (같은 hint_code를 가진 힌트들)
+  const puzzleGroups = hints.reduce((acc, hint) => {
+    if (!acc[hint.hint_code]) {
+      acc[hint.hint_code] = { name: hint.name, hints: [] }
+    }
+    acc[hint.hint_code].hints.push(hint)
+    return acc
+  }, {} as Record<string, { name: string, hints: typeof hints }>)
   
   const handleAdd = async () => {
     if (!newName.trim() || !newCode.trim() || !event) return
     setIsAdding(true)
     try {
-      const puzzleId = await addPuzzle({
+      // 3단계 힌트 모두 추가
+      await addHint({
         event_id: event.id,
         name: newName.trim(),
         hint_code: newCode.trim().toUpperCase(),
+        level: 1,
+        content: '1단계 힌트를 입력하세요',
+        coin_cost: 0,
       })
-      
-      if (puzzleId) {
-        // 기본 힌트 3개 추가
-        await addPuzzleHint({ puzzle_id: puzzleId, level: 1, content: '1단계 힌트를 입력하세요', coin_cost: 0 })
-        await addPuzzleHint({ puzzle_id: puzzleId, level: 2, content: '2단계 힌트를 입력하세요', coin_cost: 1 })
-        await addPuzzleHint({ puzzle_id: puzzleId, level: 3, content: '3단계 힌트를 입력하세요', coin_cost: 2 })
-      }
+      await addHint({
+        event_id: event.id,
+        name: newName.trim(),
+        hint_code: newCode.trim().toUpperCase(),
+        level: 2,
+        content: '2단계 힌트를 입력하세요',
+        coin_cost: 1,
+      })
+      await addHint({
+        event_id: event.id,
+        name: newName.trim(),
+        hint_code: newCode.trim().toUpperCase(),
+        level: 3,
+        content: '3단계 힌트를 입력하세요',
+        coin_cost: 2,
+      })
       
       setNewName('')
       setNewCode('')
     } catch (error) {
-      console.error('Failed to add puzzle:', error)
-      alert('퍼즐 추가에 실패했습니다')
+      console.error('Failed to add hints:', error)
+      alert('힌트 추가에 실패했습니다')
     } finally {
       setIsAdding(false)
     }
   }
   
-  const handleRemove = async (puzzleId: string, puzzleName: string) => {
-    if (!confirm(`"${puzzleName}" 퍼즐을 삭제하시겠습니까?`)) return
+  const handleRemoveGroup = async (hintCode: string, puzzleName: string) => {
+    if (!confirm(`"${puzzleName}" 퍼즐의 모든 힌트를 삭제하시겠습니까?`)) return
     try {
-      await deletePuzzle(puzzleId)
+      const hintsToDelete = hints.filter(h => h.hint_code === hintCode)
+      for (const hint of hintsToDelete) {
+        await deleteHint(hint.id)
+      }
     } catch (error) {
-      console.error('Failed to delete puzzle:', error)
-      alert('퍼즐 삭제에 실패했습니다')
+      console.error('Failed to delete hints:', error)
+      alert('힌트 삭제에 실패했습니다')
     }
   }
   
   const handleUpdateHint = async (hintId: string, content: string) => {
     try {
-      await updatePuzzleHint(hintId, { content })
+      await updateHint(hintId, { content })
     } catch (error) {
       console.error('Failed to update hint:', error)
       alert('힌트 수정에 실패했습니다')
@@ -553,7 +571,7 @@ function PuzzleSettings() {
     <div className="space-y-4">
       {/* 새 퍼즐 추가 */}
       <div className="card p-4">
-        <h3 className="font-semibold text-white mb-3">새 퍼즐 추가</h3>
+        <h3 className="font-semibold text-white mb-3">새 퍼즐/힌트 추가</h3>
         <div className="space-y-3">
           <input
             type="text"
@@ -574,35 +592,35 @@ function PuzzleSettings() {
             disabled={isAdding || !newName.trim() || !newCode.trim()}
             className="btn btn-primary w-full"
           >
-            {isAdding ? '추가 중...' : '퍼즐 추가'}
+            {isAdding ? '추가 중...' : '퍼즐 추가 (3단계 힌트 자동 생성)'}
           </button>
         </div>
       </div>
       
-      {/* 퍼즐 목록 */}
+      {/* 퍼즐/힌트 목록 */}
       <div className="card p-4">
-        <h3 className="font-semibold text-white mb-3">퍼즐 목록 ({puzzles.length})</h3>
+        <h3 className="font-semibold text-white mb-3">퍼즐 목록 ({Object.keys(puzzleGroups).length})</h3>
         <div className="space-y-3">
-          {puzzles.map(puzzle => {
-            const hints = getHintsForPuzzle(puzzle.id)
-            const isEditing = editingPuzzle === puzzle.id
+          {Object.entries(puzzleGroups).map(([hintCode, { name, hints: puzzleHints }]) => {
+            const sortedHints = puzzleHints.sort((a, b) => a.level - b.level)
+            const isEditing = editingHint === hintCode
             
             return (
-              <div key={puzzle.id} className="p-3 bg-slate-800/50 rounded-xl">
+              <div key={hintCode} className="p-3 bg-slate-800/50 rounded-xl">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <div className="font-medium text-white">{puzzle.name}</div>
-                    <div className="text-xs text-slate-400">코드: {puzzle.hint_code}</div>
+                    <div className="font-medium text-white">{name}</div>
+                    <div className="text-xs text-slate-400">코드: {hintCode}</div>
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => setEditingPuzzle(isEditing ? null : puzzle.id)}
+                      onClick={() => setEditingHint(isEditing ? null : hintCode)}
                       className="p-1 text-slate-400 hover:text-white"
                     >
                       {isEditing ? '접기' : '편집'}
                     </button>
                     <button
-                      onClick={() => handleRemove(puzzle.id, puzzle.name)}
+                      onClick={() => handleRemoveGroup(hintCode, name)}
                       className="p-1 text-red-400 hover:bg-red-400/10 rounded"
                     >
                       ✕
@@ -612,7 +630,7 @@ function PuzzleSettings() {
                 
                 {isEditing && (
                   <div className="mt-3 space-y-2">
-                    {hints.map(hint => (
+                    {sortedHints.map(hint => (
                       <div key={hint.id} className="space-y-1">
                         <label className={`text-xs ${
                           hint.level === 1 ? 'text-emerald-400' :

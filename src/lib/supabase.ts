@@ -16,9 +16,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 })
 
 // ========================================
-// Database Types (matches our simplified schema)
+// Database Types (matches actual Supabase tables)
 // ========================================
 
+// events 테이블
 export interface DbEvent {
   id: string
   name: string
@@ -31,6 +32,7 @@ export interface DbEvent {
   created_at?: string
 }
 
+// teams 테이블
 export interface DbTeam {
   id: string
   event_id: string
@@ -41,42 +43,42 @@ export interface DbTeam {
   created_at?: string
 }
 
+// stages 테이블
 export interface DbStage {
   id: string
   event_id: string
   name: string
   entry_code: string
-  webtoon_image_url: string
+  webtoon_image_url: string | null
   created_at?: string
 }
 
-export interface DbPuzzle {
+// hints 테이블 (퍼즐 + 힌트 통합)
+export interface DbHint {
   id: string
   event_id: string
-  name: string
-  hint_code: string
+  name: string           // 퍼즐 이름
+  hint_code: string      // 힌트 코드
+  level: number          // 1, 2, 3
+  content: string        // 힌트 내용
+  coin_cost: number      // 0, 1, 2
   created_at?: string
 }
 
-export interface DbPuzzleHint {
-  id: string
-  puzzle_id: string
-  level: number
-  content: string
-  coin_cost: number
-  created_at?: string
-}
-
-export interface DbTeamStageView {
+// team_progress 테이블 (스테이지 진행 상황)
+export interface DbTeamProgress {
   id: string
   team_id: string
   stage_id: string
-  viewed_at: string
+  completed_at?: string
+  created_at?: string
 }
 
-export interface DbTeamHintUsage {
+// hint_usage 테이블
+export interface DbHintUsage {
   id: string
   team_id: string
-  puzzle_hint_id: string
-  used_at: string
+  hint_id: string
+  used_at?: string
+  created_at?: string
 }

@@ -5,33 +5,32 @@
 import { useSupabaseStore } from '../../store/supabaseStore'
 
 export function AdminMonitoring() {
-  const { teams, stages, puzzles, puzzleHints, stageViews, hintUsages } = useSupabaseStore()
+  const { teams, stages, hints, teamProgress, hintUsage } = useSupabaseStore()
   
   const getTeamStageViewCount = (teamId: string) => {
-    return stageViews.filter(sv => sv.team_id === teamId).length
+    return teamProgress.filter(p => p.team_id === teamId).length
   }
   
   const getTeamHintUsageCount = (teamId: string) => {
-    return hintUsages.filter(hu => hu.team_id === teamId).length
+    return hintUsage.filter(u => u.team_id === teamId).length
   }
   
   const getTeamUsedHints = (teamId: string) => {
-    return hintUsages
-      .filter(hu => hu.team_id === teamId)
-      .map(hu => {
-        const hint = puzzleHints.find(h => h.id === hu.puzzle_hint_id)
-        const puzzle = hint ? puzzles.find(p => p.id === hint.puzzle_id) : null
-        return { hint, puzzle, usedAt: hu.used_at }
+    return hintUsage
+      .filter(u => u.team_id === teamId)
+      .map(u => {
+        const hint = hints.find(h => h.id === u.hint_id)
+        return { hint, usedAt: u.used_at }
       })
-      .filter(x => x.hint && x.puzzle)
+      .filter(x => x.hint)
   }
   
   const getTeamViewedStages = (teamId: string) => {
-    return stageViews
-      .filter(sv => sv.team_id === teamId)
-      .map(sv => {
-        const stage = stages.find(s => s.id === sv.stage_id)
-        return { stage, viewedAt: sv.viewed_at }
+    return teamProgress
+      .filter(p => p.team_id === teamId)
+      .map(p => {
+        const stage = stages.find(s => s.id === p.stage_id)
+        return { stage, completedAt: p.completed_at }
       })
       .filter(x => x.stage)
   }
@@ -114,9 +113,9 @@ export function AdminMonitoring() {
                   <div className="text-xs text-slate-500 mb-2">사용한 힌트</div>
                   {usedHints.length > 0 ? (
                     <div className="space-y-1">
-                      {usedHints.map(({ hint, puzzle }) => (
+                      {usedHints.map(({ hint }) => (
                         <div key={hint!.id} className="text-xs">
-                          <span className="text-slate-400">{puzzle!.name}</span>
+                          <span className="text-slate-400">{hint!.name}</span>
                           <span className="mx-1 text-slate-600">→</span>
                           <span className={`${
                             hint!.level === 1 ? 'text-emerald-400' :

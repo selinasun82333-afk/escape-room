@@ -1,5 +1,5 @@
 // ========================================
-// 힌트 보기 페이지 (Supabase 실시간 동기화)
+// 힌트 보기 페이지 (hints 테이블 사용)
 // ========================================
 
 import { useState, useEffect } from 'react'
@@ -8,11 +8,12 @@ import { usePlayerStore } from '../../store/playerStore'
 import { useSupabaseStore } from '../../store/supabaseStore'
 
 export function PlayerHint() {
-  const { puzzleId } = useParams<{ puzzleId: string }>()
+  // URL 파라미터는 hint_code
+  const { puzzleId: hintCode } = useParams<{ puzzleId: string }>()
   const navigate = useNavigate()
   const { team, setTeam } = usePlayerStore()
   const { 
-    puzzles, 
+    hints,
     teams, 
     isLoading,
     isInitialized,
@@ -33,8 +34,9 @@ export function PlayerHint() {
     }
   }, [isInitialized, isLoading, initialize])
   
-  const puzzle = puzzles.find(p => p.id === puzzleId)
-  const hints = puzzle ? getHintsForPuzzle(puzzle.id) : []
+  // 해당 코드의 힌트들 가져오기
+  const puzzleHints = hintCode ? getHintsForPuzzle(hintCode) : []
+  const puzzleName = puzzleHints.length > 0 ? puzzleHints[0].name : '퍼즐'
   const currentTeam = teams.find(t => t.id === team?.id)
   
   // 팀 데이터 동기화
@@ -57,7 +59,7 @@ export function PlayerHint() {
     )
   }
   
-  if (!puzzle || !team || !currentTeam) {
+  if (puzzleHints.length === 0 || !team || !currentTeam) {
     return (
       <div className="mobile-container min-h-screen bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -115,7 +117,7 @@ export function PlayerHint() {
             </svg>
           </button>
           <div>
-            <h1 className="text-xl font-bold text-white">{puzzle.name}</h1>
+            <h1 className="text-xl font-bold text-white">{puzzleName}</h1>
             <p className="text-sm text-slate-400">힌트 보기</p>
           </div>
         </div>
@@ -131,7 +133,7 @@ export function PlayerHint() {
       
       {/* 힌트 목록 */}
       <div className="px-4 space-y-4">
-        {hints.map((hint) => {
+        {puzzleHints.map((hint) => {
           const isUsed = hasUsedHint(team.id, hint.id)
           const canAfford = currentTeam.hints_remaining >= hint.coin_cost
           

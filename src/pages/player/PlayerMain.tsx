@@ -21,7 +21,7 @@ export function PlayerMain() {
     isInitialized,
     initialize,
     getStageByCode, 
-    getPuzzleByCode, 
+    getHintByCode, 
     viewStage, 
     hasViewedStage 
   } = useSupabaseStore()
@@ -100,10 +100,11 @@ export function PlayerMain() {
   }
   
   const handleHintCode = (code: string) => {
-    const puzzle = getPuzzleByCode(code)
-    if (puzzle) {
+    const hint = getHintByCode(code)
+    if (hint) {
       setShowHintModal(false)
-      navigate(`/hint/${puzzle.id}`)
+      // URL에 hint_code를 전달 (PlayerHint에서 해당 코드의 힌트들을 로드)
+      navigate(`/hint/${hint.hint_code}`)
       return true
     }
     return false
